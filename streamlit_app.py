@@ -60,13 +60,6 @@ def render_error(
         message += message_suffix
 
     st.error(message, icon=":material/error:")
-
-    # if type == "api_failure":
-    #     if st.button("Refresh", icon=":material/refresh:"):
-    #         st.rerun()
-    # elif type == "invalid_ip":
-    #     render_search_bar()
-
     st.stop()
 
 
@@ -87,7 +80,7 @@ def fetch_ip_details(ip: str) -> dict:
     :rtype: dict
     """
     response = requests.get(IP_API_URL.format(ip=ip))
-    if response.status_code != 200:
+    if response.status_code != requests.codes.ok:
         logger.error(f"Failed to fetch IP details for {ip}: {response.status_code}")
         raise IPFetchError("api_failure")
 
@@ -105,11 +98,8 @@ def render_search_bar(default_ip: str = "", label: str = ""):
     with search_cols[0]:
         ip_input = st.text_input(
             label or "Look up an IP address",
-            # label_visibility="collapsed" if not label else "visible",
             value=default_ip,
         )
-    # with search_cols[1]:
-    # render_ip_address_copy_button(ip_input)
     with search_cols[1]:
         search = st.button(
             "Search", icon=":material/search:", type="primary", width="stretch"
@@ -122,10 +112,6 @@ def render_search_bar(default_ip: str = "", label: str = ""):
             st.rerun()
         except ValueError:
             render_error(type="invalid_ip")
-
-
-def render_search_page(user_ip: str = ""):
-    render_search_bar(user_ip)
 
 
 def render_ip_details(ip: str):
@@ -150,12 +136,6 @@ def render_ip_details(ip: str):
 
 
 def main():
-    # if not st.session_state.get("last_query_params"):
-    #     st.session_state["last_query_params"] = st.query_params.to_dict()
-    # if st.session_state["last_query_params"] != st.query_params.to_dict():
-    #     st.session_state["last_query_params"] = st.query_params.to_dict()
-    #     st.rerun()
-
     user_ip: str = st.context.ip_address or "127.0.0.1"
 
     logger.info("whatsmyip accessed by %s", user_ip)
@@ -169,14 +149,12 @@ def main():
     with ip_cols[1]:
         st.markdown(f"Your IP address is `{user_ip}`")
 
-    # render_search_bar(user_ip)
-
     if query_ip := st.query_params.get("ip"):
         # IP defined, show IP details
         render_search_bar(query_ip)
         render_ip_details(query_ip)
     else:
-        # No IP defined, show search bar
+        # No IP defined
         render_search_bar(user_ip)
 
 
