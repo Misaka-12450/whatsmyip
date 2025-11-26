@@ -1,6 +1,6 @@
 [project]
 name = "whatsmyip"
 version = "0.1.0"
-description = "Add your description here"
+description = "Find out your IP address and the details of any IP address"
 requires-python = ">=3.13"
 dependencies = ["black>=25.11.0", "streamlit>=1.51.0", "pyperclip"]
