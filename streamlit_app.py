@@ -1,6 +1,7 @@
 from ipaddress import IPv4Address, IPv6Address, ip_address
 import logging
 import sys
+import textwrap
 from typing import Literal
 import requests
 import pyperclip
@@ -20,26 +21,43 @@ logging.basicConfig(
 )
 
 
+class IPFetchError(Exception):
+    pass
+
+
 def render_error(
-    type: Literal["invalid_ip", "api_failure"] | None = None, message: str | None = None
+    type: Literal["invalid_ip", "api_failure"] | None = None,
+    message: str | None = None,
+    replace_message: bool = False,
 ):
     """
     Render an error message using st.error and provide appropriate actions.
 
     :param type: Error type, will provide default messages and actions
     :type type: Literal["invalid_ip", "api_failure"] | None
-    :param message: Error message, will override default messages for types
+    :param message: Error message, will append default messages
     :type message: str | None
-    :param title: Optional title for the page displaying the error message
-    :type title: str | None
     """
-    if not message:
+    if not (replace_message and message):
+        message_suffix = (
+            textwrap.dedent(
+                f"""
+                
+                ```
+                {message}
+                ```
+                """
+            )
+            if message
+            else ""
+        )
         if type == "invalid_ip":
             message = "Invalid IP address. Please enter a valid IPv4 or IPv6 address."
         elif type == "api_failure":
             message = "Failed to retrieve IP details. Please try again."
         else:
             message = "An error occurred. Please try again."
+        message += message_suffix
 
     st.error(message, icon=":material/error:")
 
@@ -58,6 +76,30 @@ def render_ip_address_copy_button(ip: str):
         st.toast("IP address copied to clipboard!", icon=":material/check_circle:")
 
 
+@st.cache_data(show_spinner="Fetching IP details...")
+def fetch_ip_details(ip: str) -> dict:
+    """
+    Docstring for fetch_ip_details
+
+    :param ip: IP address to look up
+    :type ip: str
+    :return: IP details as a dictionary
+    :rtype: dict
+    """
+    response = requests.get(IP_API_URL.format(ip=ip))
+    if response.status_code != 200:
+        logger.error(f"Failed to fetch IP details for {ip}: {response.status_code}")
+        raise IPFetchError("api_failure")
+
+    try:
+        data = response.json()
+    except ValueError:
+        logger.error(f"Failed to parse JSON response for {ip}")
+        raise IPFetchError("api_failure")
+
+    return data
+
+
 def render_search_bar(default_ip: str = "", label: str = ""):
     search_cols = st.columns([5, 1], vertical_alignment="bottom")
     with search_cols[0]:
@@ -69,11 +111,11 @@ def render_search_bar(default_ip: str = "", label: str = ""):
     # with search_cols[1]:
     # render_ip_address_copy_button(ip_input)
     with search_cols[1]:
-        _search = st.button(
+        search = st.button(
             "Search", icon=":material/search:", type="primary", width="stretch"
         )
 
-    if _search:
+    if search:
         try:
             ip_address(ip_input)
             st.query_params.from_dict({"ip": ip_input})
@@ -87,30 +129,24 @@ def render_search_page(user_ip: str = ""):
 
 
 def render_ip_details(ip: str):
-    # render_search_bar(ip)
-
-    # Validate IP address
     try:
         ip_address(ip)
     except ValueError:
         render_error(type="invalid_ip")
 
-    # TODO: Handle localhost and private IP
-
-    # Fetch IP details from external API
-    response = requests.get(IP_API_URL.format(ip=ip))
-    if response.status_code != requests.codes.ok:
-        render_error(type="api_failure")
-
-    # Parse response JSON
     try:
-        ip_data = response.json()
-    except requests.exceptions.JSONDecodeError:
-        render_error(type="api_failure")
+        logger.info(f"Fetching details for {ip}")
+        data: dict = fetch_ip_details(ip)
+    except IPFetchError as e:
+        render_error(type=str(e))
 
-    if ip_data.get("status") != "success":
-        # API returned an error
-        render_error(type="api_failure")
+    logger.info(f"Fetched details for {ip}: {data}")
+
+    if data.get("status") != "success":
+        messsage: str = data.get("message")
+        logger.info(f"API returned unsuccessful status for {ip}: {messsage}")
+        render_error(type="api_failure", message=messsage)
+    st.write(data)
 
 
 def main():
