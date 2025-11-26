@@ -3,7 +3,4 @@ name = "whatsmyip"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.13"
-dependencies = [
-    "black>=25.11.0",
-    "streamlit",
-]
+dependencies = ["black>=25.11.0", "streamlit>=1.51.0", "pyperclip"]
