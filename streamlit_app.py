@@ -35,7 +35,7 @@ class MyIPError(Exception):
     ):
         """
         :param summary: A brief summary of the error.
-                        :param details: Detailed information about the error that should not be shown to the user.
+        :param details: Detailed information about the error that should not be shown to the user.
         :param log_level: The logging level for this error.
         """
         super().__init__(summary)
@@ -52,13 +52,17 @@ class IPAPIConnectionError(MyIPError):
     Exception raised for connection errors to the IP API.
     """
 
-    def __init__(self, summary: str | None = None, details: str | None = None):
+    def __init__(
+        self,
+        summary: str = "Failed to retrieve IP details from API. Please try again.",
+        details: str | None = None,
+    ):
         """
         :param summary: A brief summary of the error.
         :param details: Detailed information about the error that should not be shown to the user.
         """
         super().__init__(
-            summary or "Failed to retrieve IP details from API. Please try again.",
+            summary,
             details,
         )
 
@@ -68,13 +72,17 @@ class InvalidAPIResponseError(MyIPError):
     Exception raised for invalid responses from the IP API.
     """
 
-    def __init__(self, summary: str | None = None, details: str | None = None):
+    def __init__(
+        self,
+        summary: str = "Invalid response received from the API. Please try again.",
+        details: str | None = None,
+    ):
         """
         :param summary: A brief summary of the error.
-                                :param details: Detailed information about the error that should not be shown to the user.
+        :param details: Detailed information about the error that should not be shown to the user.
         """
         super().__init__(
-            summary or "Invalid response received from the API. Please try again.",
+            summary,
             details,
             logging.WARNING,
         )
@@ -97,6 +105,43 @@ class InvalidIPError(MyIPError):
         )
 
 
+class NonGlobalIPError(Exception):
+    def __init__(
+        self,
+        message: str = "The IP address is not a global address.",
+        ip: IPv4Address | IPv6Address | None = None,
+    ):
+        super().__init__(message)
+        self.ip: IPv4Address | IPv6Address | None = ip
+
+
+class LinkLocalIPError(NonGlobalIPError):
+    def __init__(
+        self,
+        message: str = "The IP address is a link-local address.",
+        ip: IPv4Address | IPv6Address | None = None,
+    ):
+        super().__init__(message, ip)
+
+
+class PrivateIPError(NonGlobalIPError):
+    def __init__(
+        self,
+        message: str = "The IP address is a private address.",
+        ip: IPv4Address | IPv6Address | None = None,
+    ):
+        super().__init__(message, ip)
+
+
+class LoopbackIPError(NonGlobalIPError):
+    def __init__(
+        self,
+        message: str = "The IP address is a loopback (localhost) address.",
+        ip: IPv4Address | IPv6Address | None = None,
+    ):
+        super().__init__(message, ip)
+
+
 def render_and_log_error(
     exception: Exception | None = None,
     err_msg: str | None = None,
@@ -112,27 +157,32 @@ def render_and_log_error(
     :return: None
     """
 
+    details: str = ""
+
     # Determine error message, details, and log level based on exception type
     if exception is None:
-        details = ""
-        log_level = logging.UNSET
+        log_level = logging.NOTSET
     elif isinstance(exception, MyIPError):
         if not err_msg and exception.summary:
             err_msg = exception.summary
-        details = exception.details
+        if exception.details:
+            details = " Details: " + exception.details
         log_level = exception.log_level
+    elif isinstance(exception, NonGlobalIPError):
+        err_msg = str(exception)
+        if str(exception.ip):
+            details = " IP: " + str(exception.ip) if exception.ip else ""
+        log_level = logging.INFO
     else:
-        details = str(exception)
-        log_level = logging.UNSET
+        if str(exception):
+            details = " Details: " + str(exception)
+        log_level = logging.NOTSET
 
     # Fallback error message and details if none provided
     err_msg = err_msg or "An error occurred. Please try again."
 
     # Log the error
-    logger.log(
-        log_level or logging.ERROR,
-        err_msg + " Details: " + details if details else err_msg,
-    )
+    logger.log(log_level or logging.ERROR, err_msg + details)
 
     # Render the error message
     if widget == "toast":
@@ -143,16 +193,21 @@ def render_and_log_error(
     st.stop()
 
 
-def render_ip_address_copy_button(ip: str):
+def render_ip_address_copy_button(
+    ip: IPv4Address | IPv6Address, disabled: bool = False
+) -> None:
     """
     Render a button to copy the IP address to clipboard.
     :param ip: IP address to copy
+    :param disabled: Whether the button should be disabled
     :return: None
     """
 
-    if st.button("Copy", icon=":material/content_copy:", width="stretch"):
+    if st.button(
+        "Copy", icon=":material/content_copy:", disabled=disabled, width="stretch"
+    ):
         try:
-            pyperclip.copy(ip)
+            pyperclip.copy(str(ip))
             st.toast("IP address copied to clipboard!", icon=":material/check_circle:")
         except pyperclip.PyperclipException as e:
             render_and_log_error(
@@ -181,7 +236,6 @@ def fetch_ip_details(ip: str | IPv4Address | IPv6Address) -> dict:
 
     response = requests.get(IP_API_URL.format(ip=ip))
     if response.status_code != requests.codes.ok:
-        # logger.error(f"Failed to fetch IP details for {ip}: {response.status_code}")
         raise IPAPIConnectionError(details=f"Status code: {response.status_code}")
 
     try:
@@ -193,7 +247,7 @@ def fetch_ip_details(ip: str | IPv4Address | IPv6Address) -> dict:
 
 
 def render_search_bar(
-    default_ip: str | IPv4Address | IPv6Address | None = None, label: str | None = None
+    default_ip: IPv4Address | IPv6Address | str | None = None, label: str | None = None
 ) -> None:
     """
     Render a search bar for IP address lookup.
@@ -220,18 +274,21 @@ def render_search_bar(
             )
         if submit:
             try:
-                ip_address(ip_input)
-                st.query_params["ip"] = ip_input
-                st.rerun()
+                ip_input: IPv4Address | IPv6Address = ip_address(ip_input)
+
             except ValueError as e:
                 render_and_log_error(InvalidIPError(details=str(e)))
 
+            st.query_params["ip"] = str(ip_input)
+            st.rerun()
 
-def render_ip_details(ip: str | IPv4Address | IPv6Address) -> None:
-    try:
-        ip_address(ip)
-    except ValueError as e:
-        render_and_log_error(InvalidIPError(details=str(e)))
+
+def render_ip_details(ip: IPv4Address | IPv6Address) -> None:
+    """
+    Render IP details fetched from the external API.
+    :param ip: IP address to look up
+    :return: None
+    """
 
     logger.info(f"Fetching details for {ip}")
     data: dict = {}
@@ -245,19 +302,16 @@ def render_ip_details(ip: str | IPv4Address | IPv6Address) -> None:
 
     if data.get("status") != "success":
         msg: str = data.get("message")
-        # logger.info(f"API returned unsuccessful status for {ip}: {msg}")
-        # render_ang_log_error(err_type="api_failure", err_msg=msg)
-        render_and_log_error(
-            InvalidAPIResponseError(
-                summary="Failed to retrieve valid IP details from API.",
-                details=msg,
-            )
-        )
+        render_and_log_error(InvalidAPIResponseError(details=msg))
     st.write(data)
 
 
 def main():
-    user_ip: str = st.context.ip_address or "127.0.0.1"
+    user_ip: IPv4Address | IPv6Address | None = ip_address(
+        st.context.ip_address or "127.0.0.1"
+    )
+    if not user_ip.is_global:
+        user_ip = None
 
     logger.info("whatsmyip accessed by %s", user_ip)
 
@@ -266,18 +320,34 @@ def main():
 
     ip_cols = st.columns([1, 5], vertical_alignment="center")
     with ip_cols[0]:
-        render_ip_address_copy_button(user_ip)
+        render_ip_address_copy_button(user_ip, disabled=not user_ip)
     with ip_cols[1]:
-        st.markdown(f"Your IP address is `{user_ip}`")
+        if user_ip:
+            st.markdown(f"Your IP address is `{user_ip}`")
+        else:
+            # st.warning("Unable to determine your global IP address.")
+            st.markdown(":material/error: Unable to determine your global IP address")
 
     if query_ip := st.query_params.get("ip"):
         # IP defined, show IP details
+        render_search_bar(query_ip)
         try:
-            query_ip = ip_address(query_ip)
+            query_ip: IPv4Address | IPv6Address = ip_address(query_ip)
         except ValueError as e:
             render_and_log_error(InvalidIPError(details=str(e)))
 
-        render_search_bar(query_ip)
+        # Check if the IP is global
+        if not query_ip.is_global:
+            if query_ip.is_link_local:
+                render_and_log_error(LinkLocalIPError())
+            elif query_ip.is_loopback:
+                render_and_log_error(LoopbackIPError())
+            elif query_ip.is_private:
+                render_and_log_error(PrivateIPError())
+            else:
+                render_and_log_error(NonGlobalIPError())
+
+        # IP is global, render details
         render_ip_details(query_ip)
     else:
         # No IP defined
