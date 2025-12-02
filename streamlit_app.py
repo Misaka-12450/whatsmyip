@@ -263,7 +263,7 @@ def render_search_bar(
         )
         with search_cols[0]:
             ip_input: str = st.text_input(
-                label or "Look up an IP address",
+                f"Look up a{" fucking" if st.session_state.get("wtf_mode") else "n"} IP address",
                 value=str(default_ip) if default_ip is not None else "",
             )
         with search_cols[1]:
@@ -332,17 +332,27 @@ def main():
     logger.info("whatsmyip accessed by %s", user_ip)
 
     st.logo(LOGO, size="large", link=HOMEPAGE)
-    st.title("What's my IP?", anchor=False)
+    st.title(
+        f"What's my{" fucking " if st.session_state.get("wtf_mode")else " "}IP?",
+        anchor=False,
+    )
+
+    wtf_mode: bool = st.toggle("WTF Mode", key="wtf_mode", help="WTF is this?")
 
     ip_cols = st.columns([1, 5], vertical_alignment="center")
     with ip_cols[0]:
         render_ip_address_copy_button(user_ip, disabled=not user_ip)
     with ip_cols[1]:
         if user_ip:
-            st.markdown(f"Your IP address is `{user_ip}`")
+            st.markdown(
+                f"Your{" fucking " if wtf_mode else " "}IP address is `{user_ip}`"
+            )
         else:
-            # st.warning("Unable to determine your global IP address.")
-            st.markdown(":material/error: Unable to determine your global IP address")
+            st.markdown(
+                "🖕 Nobody knows your fucking IP address"
+                if wtf_mode
+                else "⚠️ Unable to determine your global IP address"
+            )
 
     if query_ip := st.query_params.get("ip"):
         # IP defined, show IP details
