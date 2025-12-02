@@ -348,7 +348,7 @@ def render_ip_details(ip: IPv4Address | IPv6Address) -> None:
     try:
         data = fetch_ip_details(ip)
         logger.info(f"Fetched details for {ip}: {data}")
-    except Exception as e:
+    except MyIPError as e:
         render_and_log_error(e)
 
     # Validate API response
