@@ -390,7 +390,7 @@ def main():
 
     st.logo(LOGO, size="large", link=HOMEPAGE)
     st.title(
-        f"What{" the fuck is " if st.session_state.get("wtf_mode")else "'s "}my IP?",
+        f"What{" the fuck is " if st.session_state.get("wtf_mode") else "'s "}my IP?",
         anchor=False,
     )
 
