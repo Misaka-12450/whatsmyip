@@ -14,6 +14,8 @@ LOGO: str = st.secrets.get("logo") or "https://avatars.githubusercontent.com/u/8
 HOMEPAGE: str = st.secrets.get("homepage") or False
 IP_API_URL: str = st.secrets.get("ip_api_url") or "http://ip-api.com/json/{ip}"
 
+wtf_mode: bool = False
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
@@ -55,7 +57,7 @@ class IPAPIConnectionError(MyIPError):
 
     def __init__(
         self,
-        summary: str = "Failed to retrieve IP details from API. Please try again.",
+        summary: str = "",
         details: str | None = None,
     ):
         """
@@ -63,7 +65,11 @@ class IPAPIConnectionError(MyIPError):
         :param details: Detailed information about the error that should not be shown to the user.
         """
         super().__init__(
-            summary,
+            (
+                summary or "Can't connect to the fucking API right now!"
+                if wtf_mode
+                else "Failed to connect to the IP API. Please try again."
+            ),
             details,
         )
 
@@ -75,7 +81,7 @@ class InvalidAPIResponseError(MyIPError):
 
     def __init__(
         self,
-        summary: str = "Invalid response received from the API. Please try again.",
+        summary: str = "",
         details: str | None = None,
     ):
         """
@@ -83,7 +89,11 @@ class InvalidAPIResponseError(MyIPError):
         :param details: Detailed information about the error that should not be shown to the user.
         """
         super().__init__(
-            summary,
+            (
+                summary or "The fucking API returned an invalid response!"
+                if wtf_mode
+                else "Invalid response received from the API. Please try again."
+            ),
             details,
             logging.WARNING,
         )
@@ -100,7 +110,11 @@ class InvalidIPError(MyIPError):
         :param details: Detailed information about the error that should not be shown to the user.
         """
         super().__init__(
-            summary or "Invalid IP address. Please enter a valid IPv4 or IPv6 address.",
+            (
+                summary or "That's not a valid fucking IP address!"
+                if wtf_mode
+                else "Invalid IP address. Please enter a valid IPv4 or IPv6 address."
+            ),
             details,
             logging.INFO,
         )
@@ -109,38 +123,63 @@ class InvalidIPError(MyIPError):
 class NonGlobalIPError(Exception):
     def __init__(
         self,
-        message: str = "The IP address is not a global address.",
+        message: str = "",
         ip: IPv4Address | IPv6Address | None = None,
     ):
-        super().__init__(message)
+        super().__init__(
+            message or "That's not a global fucking address!"
+            if wtf_mode
+            else "The IP address is not a global address."
+        )
         self.ip: IPv4Address | IPv6Address | None = ip
 
 
 class LinkLocalIPError(NonGlobalIPError):
     def __init__(
         self,
-        message: str = "The IP address is a link-local address.",
+        message: str = "",
         ip: IPv4Address | IPv6Address | None = None,
     ):
-        super().__init__(message, ip)
+        super().__init__(
+            (
+                message or "That's a fucking link-local address!"
+                if wtf_mode
+                else "The IP address is a link-local address."
+            ),
+            ip,
+        )
 
 
 class PrivateIPError(NonGlobalIPError):
     def __init__(
         self,
-        message: str = "The IP address is a private address.",
+        message: str = "",
         ip: IPv4Address | IPv6Address | None = None,
     ):
-        super().__init__(message, ip)
+        super().__init__(
+            (
+                message or "That's a fucking private address!"
+                if wtf_mode
+                else "The IP address is a private address."
+            ),
+            ip,
+        )
 
 
 class LoopbackIPError(NonGlobalIPError):
     def __init__(
         self,
-        message: str = "The IP address is a loopback (localhost) address.",
+        message: str = "",
         ip: IPv4Address | IPv6Address | None = None,
     ):
-        super().__init__(message, ip)
+        super().__init__(
+            (
+                message or "That's a fucking loopback address!"
+                if wtf_mode
+                else "The IP address is a loopback (localhost) address."
+            ),
+            ip,
+        )
 
 
 def render_and_log_error(
@@ -336,6 +375,9 @@ def render_ip_details(ip: IPv4Address | IPv6Address) -> None:
 
 
 def main():
+    global wtf_mode
+    wtf_mode = True if st.query_params.get("wtf_mode") else False
+
     user_ip: IPv4Address | IPv6Address | None = ip_address(
         st.context.ip_address or "127.0.0.1"
     )
@@ -346,11 +388,18 @@ def main():
 
     st.logo(LOGO, size="large", link=HOMEPAGE)
     st.title(
-        f"What's my{" fucking " if st.session_state.get("wtf_mode")else " "}IP?",
+        f"What{" the fuck is " if st.session_state.get("wtf_mode")else "'s "}my IP?",
         anchor=False,
     )
 
-    wtf_mode: bool = st.toggle("WTF Mode", key="wtf_mode", help="WTF is this?")
+    wtf_mode = st.toggle(
+        "WTF Mode", value=wtf_mode, key="wtf_mode", help="WTF is this?"
+    )
+    if wtf_mode:
+        st.query_params["wtf_mode"] = True
+    else:
+        if st.query_params.get("wtf_mode"):
+            st.query_params.pop("wtf_mode")
 
     ip_cols = st.columns([1, 5], vertical_alignment="center")
     with ip_cols[0]:
