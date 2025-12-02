@@ -14,7 +14,7 @@ LOGO: str = st.secrets.get("logo") or "https://avatars.githubusercontent.com/u/8
 HOMEPAGE: str = st.secrets.get("homepage") or False
 IP_API_URL: str = st.secrets.get("ip_api_url") or "http://ip-api.com/json/{ip}"
 
-wtf_mode: bool = False
+wtf_mode: bool
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -390,7 +390,7 @@ def main():
 
     st.logo(LOGO, size="large", link=HOMEPAGE)
     st.title(
-        f"What{" the fuck is " if st.session_state.get("wtf_mode") else "'s "}my IP?",
+        f"What{" the fuck is " if wtf_mode else "'s "}my IP?",
         anchor=False,
     )
 
