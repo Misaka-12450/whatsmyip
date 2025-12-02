@@ -4,6 +4,7 @@ import textwrap
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Literal
 
+import pandas as pd
 import pyperclip
 import requests
 import streamlit as st
@@ -290,20 +291,35 @@ def render_ip_details(ip: IPv4Address | IPv6Address) -> None:
     :return: None
     """
 
+    # Fetch IP details
     logger.info(f"Fetching details for {ip}")
     data: dict = {}
     try:
         data = fetch_ip_details(ip)
         logger.info(f"Fetched details for {ip}: {data}")
-    except MyIPError as e:
-        render_and_log_error(e)
     except Exception as e:
         render_and_log_error(e)
 
+    # Validate API response
     if data.get("status") != "success":
         msg: str = data.get("message")
         render_and_log_error(InvalidAPIResponseError(details=msg))
-    st.write(data)
+
+    latitude = data.get("latitude") or data.get("lat")
+    longitude = data.get("longitude") or data.get("lon") or data.get("long")
+    if latitude and longitude:
+        # Render map and details side by side
+        left, right = st.columns(2)
+        df = pd.DataFrame({"latitude": [latitude], "longitude": [longitude]})
+        with left:
+            map_container = st.empty()
+            with map_container:
+                st.map(df, size=100)
+        with right:
+            st.write(data)
+    else:
+        # No coordinates, render IP details only
+        st.write(data)
 
 
 def main():
