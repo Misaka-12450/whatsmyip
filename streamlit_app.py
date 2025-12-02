@@ -284,6 +284,18 @@ def render_search_bar(
             st.rerun()
 
 
+def process_ip_details(data: dict) -> dict:
+    """
+    Removes the 'status' and 'ip' fields from the API response dictionary,
+    as these are not needed for display or further processing.
+
+    :param data: Raw IP details from the API response
+
+    :return: Processed IP details with 'status' and 'ip' fields removed
+    """
+    return {k: v for k, v in data.items() if k not in ["status", "ip"]}
+
+
 def render_ip_details(ip: IPv4Address | IPv6Address) -> None:
     """
     Render IP details fetched from the external API.
@@ -305,6 +317,7 @@ def render_ip_details(ip: IPv4Address | IPv6Address) -> None:
         msg: str = data.get("message")
         render_and_log_error(InvalidAPIResponseError(details=msg))
 
+    data = process_ip_details(data)
     latitude = data.get("latitude") or data.get("lat")
     longitude = data.get("longitude") or data.get("lon") or data.get("long")
     if latitude and longitude:
