@@ -378,7 +378,7 @@ def render_ip_details(ip: IPv4Address | IPv6Address) -> None:
 
 def main():
     global wtf_mode
-    wtf_mode = True if st.query_params.get("wtf_mode") else False
+    wtf_mode = st.session_state.get("wtf_mode", bool(st.query_params.get("wtf_mode")))
 
     user_ip: IPv4Address | IPv6Address | None = ip_address(
         st.context.ip_address or "127.0.0.1"
