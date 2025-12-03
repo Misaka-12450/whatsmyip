@@ -3,4 +3,7 @@ name = "whatsmyip"
 version = "0.2.1"
 description = "Find out your IP address and the details of any IP address"
 requires-python = ">=3.13"
-dependencies = ["black>=25.11.0", "streamlit>=1.51.0", "pyperclip"]
+dependencies = ["streamlit>=1.51.0", "pyperclip"]
+
+[dependency-groups]
+dev = ["black>=25.11.0"]

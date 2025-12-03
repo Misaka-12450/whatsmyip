@@ -774,17 +774,23 @@ wheels = [
 
 [[package]]
 name = "whatsmyip"
-version = "0.1.0"
+version = "0.2.2"
 source = { virtual = "." }
 dependencies = [
-    { name = "black" },
     { name = "pyperclip" },
     { name = "streamlit" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "black" },
+]
+
 [package.metadata]
 requires-dist = [
-    { name = "black", specifier = ">=25.11.0" },
     { name = "pyperclip" },
     { name = "streamlit", specifier = ">=1.51.0" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "black", specifier = ">=25.11.0" }]
